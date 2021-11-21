@@ -164,23 +164,23 @@ const typeDefs = gql`
         kick(user: ID!, event: ID!): Event
         promote(user: ID!, event: ID!): Event
         demote(user: ID!, event: ID!): Event
-        addAttendant(user: ID!, event: ID!): Event
 
         # Invitations
-        createInvitation: Invitation
-        editInvitation(invitation: EditInvitation!): Invitation
-        deleteInvitation(invitation: ID!): Invitation
+        invite(user: ID!, event: ID!): Invitation
+        acceptInvitation(invitation: ID!): Event
+        declineInvitation(invitation: ID!): Event
 
         # Requests
         request(event: ID!): Event
-        removeRequest(user: ID!, event: ID!): Event
+        acceptRequest(user: ID!, event: ID!): Event
+        declineRequest(user: ID!, event: ID!): Event
 
         # Posts
         createPost(post: CreatePost!): Post
-        editPost(post: EditPost!): Post
         deletePost(post: ID!): Post
         flagPost(post: ID!): Post
-        clearPost(post: ID!): Post
+        review(post: ID!, locked: Boolean!): Post
+        unlockPost(post: ID!): Post
     }
 `;
 export default typeDefs;

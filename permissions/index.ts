@@ -132,7 +132,15 @@ export const permissions = shield(
             unsubscribe: allow,
 
             // Events
-            createEvent: rules.isLoggedIn,
+            createEvent: and(
+                rules.isLoggedIn,
+                or(
+                    not(rules.argIsPrivate),
+                    callerHasRole(Role.PREMIUM),
+                    callerHasRole(Role.MODERATOR),
+                    callerHasRole(Role.ADMINISTRATOR),
+                ),
+            ),
             editEvent: and(
                 rules.callerManagesArg,
                 or(
@@ -151,10 +159,6 @@ export const permissions = shield(
             deleteEvent: rules.callerOwnsParent,
 
             // Event management
-            addAttendant: or(
-                and(rules.callerManagesArg, rules.argRequestsArg),
-                and(isCaller(Reference.ARG), rules.callerIsInvitedToArg),
-            ),
             kick: and(
                 not(and(rules.callerOwnsArg, isCaller(Reference.ARG))),
                 or(isCaller(Reference.ARG), rules.callerManagesArg),
@@ -163,24 +167,20 @@ export const permissions = shield(
             demote: and(rules.callerOwnsArg, not(isCaller(Reference.ARG))),
 
             // Invitations
-            createInvitation: rules.isLoggedIn,
-            // TODO: In its current implementation, checking this permission is
-            // very hard to implement - do it better!
-            editInvitation: allow,
-            deleteInvitation: or(
+            invite: rules.callerManagesArg,
+            acceptInvitation: rules.callerIsInvitedToArg,
+            declineInvitation: or(
                 rules.callerIsInvitedToArg,
                 rules.callerManagesArg,
             ),
 
             // Requests
             request: not(rules.argIsPrivate),
-            removeRequest: or(rules.callerRequestsArg, rules.callerManagesArg),
+            acceptRequest: rules.callerManagesArg,
+            declineRequest: or(rules.callerRequestsArg, rules.callerManagesArg),
 
             // Posts
-            createPost: rules.isLoggedIn,
-            // TODO: In its current implementation, checking this permission is
-            // very hard to implement - do it better!
-            editPost: allow,
+            createPost: rules.callerAttendsArg,
             deletePost: and(
                 callerHasRole(Role.ADMINISTRATOR),
                 rules.argIsLocked,
@@ -190,7 +190,8 @@ export const permissions = shield(
                 rules.callerModeratesArg,
                 callerHasRole(Role.ADMINISTRATOR),
             ),
-            clearPost: or(rules.callerModeratesArg, callerHasRole(Role.ADMINISTRATOR)),
+            review: and(rules.argIsFlagged, or(callerHasRole(Role.ADMINISTRATOR), rules.callerModeratesArg, rules.callerManagesArg)),
+            unlockPost: callerHasRole(Role.ADMINISTRATOR)
         },
     },
     {

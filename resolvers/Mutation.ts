@@ -34,7 +34,6 @@ export interface IEditCategory {
     name: string,
 }
 
-// TODO: Improve this resolver
 export function createCategory(
     parent: undefined,
     { name }: { name: string },
@@ -77,7 +76,6 @@ export function removeModerator(
     );
 }
 
-// TODO: Use this interface
 export interface ICreateUser {
     username: string
     name: string
@@ -86,7 +84,7 @@ export interface ICreateUser {
 }
 
 const SALT_ROUNDS = 8;
-// TODO: Improve this resolver
+
 export function createUser(
     parent: undefined,
     { user }: { user: ICreateUser },
@@ -177,7 +175,6 @@ export function unsubscribe(
     );
 }
 
-// TODO: Use this interface!
 export interface ICreateEvent {
     categories?: string[],
     title: string,
@@ -187,7 +184,6 @@ export interface ICreateEvent {
     private: boolean,
 }
 
-// TODO: Improve this resolver!
 export async function createEvent(
     parent: undefined,
     { event }: { event: ICreateEvent },
@@ -204,7 +200,7 @@ export interface IEditEvent {
     location?: string
     private?: boolean
 }
-// TODO: Simplify this resolver
+
 export function editEvent(
     parent: undefined,
     { event }: { event: IEditEvent & INode },
@@ -301,54 +297,43 @@ export function demote(
     );
 }
 
-// TODO: Make this resolver obsolete
-export function addAttendant(parent: undefined, args: IEventArg & IUserArg) {
-    return Event.findByIdAndUpdate(
-        Types.ObjectId(args.event),
-        { $addToSet: { attendants: Types.ObjectId(args.user) } },
-    );
-}
-
-// TODO: Improve this resolver
-export function createInvitation() {
-    return Invitation.create({});
-}
-
-// TODO: Make this interface obsolete
-export interface IEditInvitation {
-    from?: string
-    invited?: string
-    to?: string
-}
-// TODO: Make this resolver obsolete
-export function editInvitation(
+export function invite(
     parent: undefined,
-    { invitation }: { invitation: IEditInvitation & INode },
+    { user, event }: IUserArg & IEventArg,
+    ctx: IContext,
 ) {
-    const _id = popId(invitation);
-    const mapped: {
-        from?: Types.ObjectId,
-        invited?: Types.ObjectId,
-        to?: Types.ObjectId,
-    } = {};
-    if (invitation.from) {
-        mapped.from = Types.ObjectId(invitation.from);
-    }
-    if (invitation.invited) {
-        mapped.invited = Types.ObjectId(invitation.invited);
-    }
-    if (invitation.to) {
-        mapped.to = Types.ObjectId(invitation.to);
-    }
-    return Invitation.findByIdAndUpdate(_id, { ...mapped });
+    const from = getLoggedIn(ctx);
+    const invited = Types.ObjectId(user);
+    const to = Types.ObjectId(event);
+
+    return Invitation.create({ from, invited, to });
 }
 
-// TODO: Improve this resolver
-export function deleteInvitation(
+export function acceptInvitation(
     parent: undefined,
     { invitation }: IInvitationArg,
+    cxt: IContext,
 ) {
-    return Invitation.findOneAndDelete({ _id: Types.ObjectId(invitation) });
+    return Invitation.findOneAndDelete({ _id: Types.ObjectId(invitation) }).then((invit) => {
+        if (invit) {
+            return Event.findOneAndUpdate(
+                { _id: invit.to },
+                { $addToSet: { attendants: invit.invited } },
+            );
+        }
+    })
+}
+
+export function declineInvitation(
+    parent: undefined,
+    { invitation }: IInvitationArg,
+    cxt: IContext,
+) {
+    return Invitation.findOneAndDelete({ _id: Types.ObjectId(invitation) }).then((invit) => {
+        if (invit) {
+            return Event.findOne({ _id: invit.to });
+        }
+    })
 }
 
 export function request(
@@ -362,8 +347,22 @@ export function request(
     );
 }
 
-// TODO: Improve this resolver
-export function removeRequest(
+export function acceptRequest(
+    parent: undefined,
+    { user, event }: IUserArg & IEventArg,
+    cxt: IContext,
+) {
+    const userId = Types.ObjectId(user);
+    return Event.findOneAndUpdate(
+        {
+            _id: Types.ObjectId(event),
+            requests: userId,
+        },
+        { $pull: { requests: userId }, $addToSet: { attendants: userId } }
+    );
+}
+
+export function declineRequest(
     parent: undefined,
     { user, event }: IUserArg & IEventArg,
 ) {
@@ -377,12 +376,11 @@ export function removeRequest(
     );
 }
 
-// TODO: Use this interface
 export interface ICreatePost {
     postedAt: string
     content: string
 }
-// TODO: Improve this resolver
+
 export function createPost(
     parent: undefined,
     { post }: { post: ICreatePost },
@@ -390,38 +388,6 @@ export function createPost(
 ) {
     const postedAt = Types.ObjectId(post.postedAt);
     return Post.create({ content: post.content, postedAt });
-}
-
-// TODO: Make this interface obsolete
-export interface IEditPost {
-    content: string
-    locked: boolean
-    author: string
-    reviewer: string
-    postedAt: string
-}
-// TODO: Make this resolver obsolete
-export function editPost(parent: undefined, { post }: { post: IEditPost & INode }) {
-    const _id = popId(post);
-    const mapped: {
-        author?: Types.ObjectId,
-        reviewer?: Types.ObjectId,
-        postedAt?: Types.ObjectId,
-    } = {};
-    if (post.author) {
-        mapped.author = Types.ObjectId(post.author);
-    }
-    if (post.reviewer) {
-        mapped.reviewer = Types.ObjectId(post.reviewer);
-    }
-    if (post.postedAt) {
-        mapped.postedAt = Types.ObjectId(post.postedAt);
-    }
-    return Post.findByIdAndUpdate(
-        _id,
-        // Later spreads take priority over earlier spreads
-        { ...post, ...mapped },
-    );
 }
 
 export function deletePost(parent: undefined, { post }: IPostArg) {
@@ -435,10 +401,28 @@ export function flagPost(parent: undefined, { post }: IPostArg) {
     );
 }
 
-// TODO: Make this resolver obsolete
-export function clearPost(parent: undefined, { post }: IPostArg) {
+export function review(
+    parent: undefined,
+    { post, locked }: IPostArg & { locked: boolean },
+    ctx: IContext,
+) {
     return Post.findByIdAndUpdate(
         Types.ObjectId(post),
-        { flagged: false },
+        {
+            flagged: false,
+            locked
+        },
+    );
+}
+
+
+export function unlockPost(
+    parent: undefined,
+    { post }: IPostArg,
+    ctx: IContext,
+) {
+    return Post.findByIdAndUpdate(
+        Types.ObjectId(post),
+        { locked: false },
     );
 }

@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 import { IContext } from '..';
 import { UserInputError } from 'apollo-server-express';
 import { getLoggedIn, mapIds, popId } from './util';
+import { usersByUsername } from './Query';
 
 export interface INode {
     _id: string,
@@ -34,8 +35,11 @@ export interface IEditCategory {
 }
 
 // TODO: Improve this resolver
-export function createCategory() {
-    return Category.create({});
+export function createCategory(
+    parent: undefined,
+    { name }: { name: string },
+) {
+    return Category.create({ name });
 }
 
 export function editCategory(
@@ -83,8 +87,13 @@ export interface ICreateUser {
 
 const SALT_ROUNDS = 8;
 // TODO: Improve this resolver
-export function createUser() {
-    return User.create({});
+export function createUser(
+    parent: undefined,
+    { user }: { user: ICreateUser },
+) {
+    const { username, name, surname, password } = user;
+    return hash(password, SALT_ROUNDS).then(
+        (hash) => User.create({ username, name, surname, password: hash }));
 }
 
 export function login(
@@ -179,8 +188,13 @@ export interface ICreateEvent {
 }
 
 // TODO: Improve this resolver!
-export async function createEvent() {
-    return Event.create({});
+export async function createEvent(
+    parent: undefined,
+    { event }: { event: ICreateEvent },
+    ctx: IContext,
+) {
+    const owner = getLoggedIn(ctx)
+    return Event.create({ owner, managers: [owner], attendants: [owner], ...event });
 }
 
 export interface IEditEvent {
@@ -188,8 +202,6 @@ export interface IEditEvent {
     time?: Date
     description?: string
     location?: string
-    // TODO: Remove this argument
-    owner?: string
     private?: boolean
 }
 // TODO: Simplify this resolver
@@ -198,21 +210,10 @@ export function editEvent(
     { event }: { event: IEditEvent & INode },
 ) {
     const _id = popId(event);
-    const mapped: {
-        owner?: Types.ObjectId,
-        managers?: Types.ObjectId[],
-        attendants?: Types.ObjectId[],
-    } = {};
-    if (event.owner) {
-        const owner = Types.ObjectId(event.owner);
-        mapped.owner = owner;
-        mapped.managers = [owner];
-        mapped.attendants = [owner];
-    }
     return Event.findOneAndUpdate(
         { _id },
         // Later spreads take higher priority over earlier spread
-        { ...event, ...mapped },
+        { ...event },
     );
 }
 
@@ -222,9 +223,11 @@ export function addCategories(
 ) {
     return Event.findOneAndUpdate(
         { _id: Types.ObjectId(event) },
-        { $addToSet: {
-            categories: { $each: categories.map(Types.ObjectId) },
-        } },
+        {
+            $addToSet: {
+                categories: { $each: categories.map(Types.ObjectId) },
+            }
+        },
     )
 }
 
@@ -234,9 +237,11 @@ export function removeCategories(
 ) {
     return Event.findOneAndUpdate(
         { _id: Types.ObjectId(event) },
-        { $pull: {
-            categories: { $in: categories.map(Types.ObjectId) },
-        } },
+        {
+            $pull: {
+                categories: { $in: categories.map(Types.ObjectId) },
+            }
+        },
     );
 }
 
@@ -318,7 +323,7 @@ export interface IEditInvitation {
 // TODO: Make this resolver obsolete
 export function editInvitation(
     parent: undefined,
-    { invitation }: { invitation: IEditInvitation & INode},
+    { invitation }: { invitation: IEditInvitation & INode },
 ) {
     const _id = popId(invitation);
     const mapped: {
@@ -378,8 +383,13 @@ export interface ICreatePost {
     content: string
 }
 // TODO: Improve this resolver
-export function createPost() {
-    return Post.create();
+export function createPost(
+    parent: undefined,
+    { post }: { post: ICreatePost },
+    ctx: IContext,
+) {
+    const postedAt = Types.ObjectId(post.postedAt);
+    return Post.create({ content: post.content, postedAt });
 }
 
 // TODO: Make this interface obsolete

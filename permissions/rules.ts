@@ -46,7 +46,7 @@ export function isCaller(who: Reference, prop?: string) {
         const userId = getLoggedIn(ctx);
         switch (who) {
             case Reference.ARG: {
-                const userPtr = typeof(args.user) === 'string' ?
+                const userPtr = typeof (args.user) === 'string' ?
                     (args as IUserArg).user :
                     (args as { user: INode }).user._id;
                 return userId.equals(userPtr);
@@ -134,11 +134,13 @@ function isManager(
 ): Promise<boolean> {
     if (isOId(event)) {
         return Event.findOne(
-            { _id: event, $or: [
-                { managers: user },
-                { owner: user },
-            ] },
-            ).then(Boolean);
+            {
+                _id: event, $or: [
+                    { managers: user },
+                    { owner: user },
+                ]
+            },
+        ).then(Boolean);
     } else {
         return Promise.resolve(event.managers.includes(user));
     }
@@ -168,7 +170,7 @@ function isInvitedEvent(
     }).then(Boolean);
 }
 
-function isInvitedInvitation (
+function isInvitedInvitation(
     user: Types.ObjectId,
     invitation: Types.ObjectId | IInvitation,
 ): Promise<boolean> {
@@ -321,6 +323,7 @@ export const parentIsLocked = rule({ cache: 'no_cache' })(
     (parent: IPost, args: any) => parent.locked,
 );
 
+/*
 export const argEventHasOwner = rule({ cache: 'strict' })(
     async (parent: undefined, { event }: { event: IEditEvent & INode }) => {
         return Event.findById(event._id).then(
@@ -332,3 +335,4 @@ export const argEventHasOwner = rule({ cache: 'strict' })(
 export const argOwnerDefined = rule({ cache: 'no_cache' })(
     (parent: undefined, { event }: { event: IEditEvent }) => Boolean(event.owner),
 );
+*/

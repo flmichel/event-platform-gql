@@ -134,10 +134,7 @@ export const permissions = shield(
             // Events
             createEvent: rules.isLoggedIn,
             editEvent: and(
-                or(
-                    rules.callerManagesArg,
-                    or(not(rules.argOwnerDefined), not(rules.argEventHasOwner)),
-                ),
+                rules.callerManagesArg,
                 or(
                     not(rules.argIsPrivate),
                     callerHasRole(Role.PREMIUM),

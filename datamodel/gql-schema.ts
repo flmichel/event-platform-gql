@@ -102,8 +102,6 @@ const typeDefs = gql`
         time: Date
         description: String
         location: String
-        # TODO: Remove this argument
-        owner: ID
         private: Boolean
     }
 
@@ -140,14 +138,14 @@ const typeDefs = gql`
 
     type Mutation {
         # Categories
-        createCategory: Category
+        createCategory(name: String!): Category
         editCategory(category: EditCategory): Category
         deleteCategory(category: ID!): Category
         assignModerator(category: ID!, user: ID!): Category
         removeModerator(category: ID!, user: ID!): Category
 
         # Users
-        createUser: User
+        createUser(user: CreateUser!): User
         login(username: String!, password: String!): Boolean!
         editUser(user: EditUser!): User
         setRole(user: ID!, role: Role!): User
@@ -156,7 +154,7 @@ const typeDefs = gql`
         unsubscribe(categories: [ID!]!): User!
 
         # Events
-        createEvent: Event
+        createEvent(event: CreateEvent!): Event
         editEvent(event: EditEvent!): Event
         addCategories(categories: [ID!]!, event: ID!): Event
         removeCategories(categories: [ID!]!, event: ID!): Event
@@ -178,7 +176,7 @@ const typeDefs = gql`
         removeRequest(user: ID!, event: ID!): Event
 
         # Posts
-        createPost: Post
+        createPost(post: CreatePost!): Post
         editPost(post: EditPost!): Post
         deletePost(post: ID!): Post
         flagPost(post: ID!): Post

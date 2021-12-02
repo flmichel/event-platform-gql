@@ -1,4 +1,4 @@
-import { and, IRules, or, rule } from 'graphql-shield';
+import { and, IRules, or, not, rule } from 'graphql-shield';
 import { LogicRule, Rule } from 'graphql-shield/dist/rules';
 import { ShieldRule } from 'graphql-shield/dist/types';
 import { isArray, mapValues, reduce, values } from 'lodash';
@@ -39,14 +39,13 @@ function mergePerms(
  * @returns Rule map where each leafs is a disjunction
  */
 export function OR(...perms: IRules[]): IRules {
-    // TODO: Implement!
-    return {};
+    return mergePerms(perms, (leafPerms) => leafPerms.length == 1 ? leafPerms[0] : or(...leafPerms));
 }
 
 /**
  * Map of user role to the role's permissions.
  */
-type RBAC = { [k in Role]?: IRules };
+type RBAC = { [k in Role]: IRules };
 
 /**
  * Merges a map of role-based access control rules into a single map of rules.
@@ -61,6 +60,14 @@ type RBAC = { [k in Role]?: IRules };
  * permissions
  */
 export function rbac(perms: RBAC, defaults?: IRules): IRules {
-    // TODO: Implement!
-    return {};
+    // Get an array of IRules and transform each rule of each role to "and(callerHasRole(role), rule)"
+    const rulesPerRoleArray = values(mapValues(perms, (perm, role) => perm ? mapLeafs(perm, (leaf) => and(callerHasRole(role as Role), leaf), isRule) as IRules : perm))
+    if (defaults) {
+        // Get an array of rules for each role: "not(callerHasRole(role))"
+        const hasNoRoleArray = values(mapValues(perms, (_, role) => not(callerHasRole(role as Role))))
+        // Update the default rules such that each rule becomes "and(...hasNoRoleArray, rule)"
+        const defaultRules = mapLeafs(defaults, (leaf) => and(...hasNoRoleArray, leaf), isRule) as IRules
+        return OR(...rulesPerRoleArray, defaultRules);
+    }
+    return OR(...rulesPerRoleArray)
 }
